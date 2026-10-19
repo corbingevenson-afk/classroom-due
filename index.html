@@ -377,8 +377,7 @@ function renderSetup(){
     ${cfg.mode?`<button class="ghost" id="b-reset" style="color:var(--red)">Disconnect & clear data</button>`:''}
   </div>
   </div>`;
-  const gsrc=document.getElementById('gs').textContent.trim()+'
-'; $('#gs-view').value=gsrc;
+  const gsrc=document.getElementById('gs').textContent.trim()+'\n'; $('#gs-view').value=gsrc;
   $('#b-copy').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gsrc); toast('Script copied. Paste it into Apps Script.')}catch{ $('#gs-view').closest('details').open=true; $('#gs-view').select(); toast('Select all in the box and copy') }};
   $('#b-script').onclick=()=>{const url=$('#f-url').value.trim(); if(!/^https:\/\/script\.google\.com\/.+\/exec/.test(url)) return toast('Paste the Web app URL ending in /exec'); cfg={...cfg,mode:'script',scriptUrl:url,key:$('#f-key').value.trim()}; save(LS.cfg,cfg); renderMain(); sync();};
   $('#b-json').onclick=()=>{try{const raw=JSON.parse($('#f-json').value); if(raw.error) throw new Error(raw.error); data=normalize(raw); save(LS.data,data); cfg={...cfg,mode:cfg.mode||'script',scriptUrl:$('#f-url').value.trim()||cfg.scriptUrl||'',key:$('#f-key').value.trim()||cfg.key||''}; save(LS.cfg,cfg); renderMain(); toast('Loaded');}catch(e){toast('Bad JSON: '+e.message)}};
