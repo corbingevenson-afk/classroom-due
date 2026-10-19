@@ -2,14 +2,14 @@
 
 Your Google Classroom assignments in one clean list: overdue, today, tomorrow, this week, later. Shows points, turned-in status, and a link back to Classroom. Works as an installable app on a Chromebook.
 
-Live app: https://corbingevenson-afk.github.io/classroom-due/
+Live app: https://classroom-due.pages.dev/ (Cloudflare Pages). GitHub Pages mirror: https://corbingevenson-afk.github.io/classroom-due/
 
 ## Connect it to your Classroom (about 5 minutes)
 
 Use the Google account you use for Classroom.
 
 1. Open https://script.google.com/home/projects/create (new project).
-2. Delete everything in the editor and paste in [`apps-script/Code.gs`](apps-script/Code.gs). Change `KEY` at the top to any password you like.
+2. Delete everything in the editor and paste in the script (use **Copy the script** inside the app, or [`apps-script/Code.gs`](apps-script/Code.gs)). Change `KEY` at the top to any password you like.
 3. In the left sidebar, click the **+** next to **Services**, choose **Google Classroom API**, click **Add**.
 4. Top right: **Deploy → New deployment**. Gear icon → type **Web app**. Execute as: **Me**. Who has access: **Anyone**. Click **Deploy** and approve the permissions. If Google shows a warning screen, click **Advanced → Go to (project name)**.
 5. Copy the **Web app URL** (ends in `/exec`). Open the app, paste the URL and your key, hit **Save & sync**.

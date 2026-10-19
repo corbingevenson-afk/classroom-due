@@ -91,6 +91,79 @@ details summary{cursor:pointer;color:var(--acc);font-size:14px;margin-top:8px}
 <div class="wrap" id="app"></div>
 <div class="toast" id="toast"></div>
 
+<script type="text/plain" id="gs">
+/**
+ * Classroom Due bridge
+ * 1. Paste this into a new project at script.google.com (use the account you use for Classroom).
+ * 2. Change KEY below to any password you like.
+ * 3. Services (+) -> Google Classroom API -> Add.
+ * 4. Deploy -> New deployment -> Web app. Execute as: Me. Who has access: Anyone. Deploy and approve.
+ * 5. Paste the Web app URL and the key into the Classroom Due app.
+ */
+var KEY = 'change-me';   // <- pick your own
+var DAYS_BACK = 45;      // how far back to include old assignments
+
+function doGet(e) {
+  var p = (e && e.parameter) || {};
+  if (KEY && p.key !== KEY) return out({ error: 'Wrong key. Add ?key=YOURKEY or fix the key in the app.' });
+  try { return out(collect()); }
+  catch (err) { return out({ error: 'Script error: ' + (err && err.message ? err.message : err) }); }
+}
+
+function collect() {
+  var courses = [], token;
+  do {
+    var r = Classroom.Courses.list({ courseStates: ['ACTIVE'], studentId: 'me', pageSize: 100, pageToken: token });
+    courses = courses.concat(r.courses || []);
+    token = r.nextPageToken;
+  } while (token);
+
+  var cutoff = Date.now() - DAYS_BACK * 864e5;
+  var work = [], subs = [];
+  courses.forEach(function (c) {
+    var t;
+    do {
+      var w = Classroom.Courses.CourseWork.list(c.id, { courseWorkStates: ['PUBLISHED'], orderBy: 'dueDate desc', pageSize: 100, pageToken: t });
+      (w.courseWork || []).forEach(function (cw) { if (keep(cw, cutoff)) work.push(slimWork(cw)); });
+      t = w.nextPageToken;
+    } while (t);
+    var s;
+    do {
+      var r2 = Classroom.Courses.CourseWork.StudentSubmissions.list(c.id, '-', { userId: 'me', pageSize: 100, pageToken: s });
+      (r2.studentSubmissions || []).forEach(function (x) { subs.push({ courseWorkId: x.courseWorkId, state: x.state, late: !!x.late }); });
+      s = r2.nextPageToken;
+    } while (s);
+  });
+
+  return {
+    fetchedAt: new Date().toISOString(),
+    courses: courses.map(function (c) { return { id: c.id, name: c.name, section: c.section || '' }; }),
+    work: work,
+    subs: subs
+  };
+}
+
+function keep(cw, cutoff) {
+  if (cw.dueDate && cw.dueDate.year) {
+    var d = cw.dueDate, t = cw.dueTime || { hours: 23, minutes: 59 };
+    return Date.UTC(d.year, d.month - 1, d.day, t.hours || 0, t.minutes || 0) >= cutoff;
+  }
+  return Date.parse(cw.creationTime || 0) >= cutoff;
+}
+
+function slimWork(cw) {
+  return {
+    id: cw.id, courseId: cw.courseId, title: cw.title, description: (cw.description || '').slice(0, 160),
+    dueDate: cw.dueDate || null, dueTime: cw.dueTime || null, maxPoints: cw.maxPoints || null,
+    alternateLink: cw.alternateLink, workType: cw.workType, creationTime: cw.creationTime
+  };
+}
+
+function out(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+</script>
+
 <script>
 'use strict';
 // ---------- state ----------
@@ -271,7 +344,7 @@ function renderSetup(){
     <p>A tiny script that runs on <b>your</b> Google account and hands this app your assignments. No developer console needed.</p>
     <details><summary>Setup steps (about 5 minutes)</summary><ol>
       <li>On the account you use for Classroom, open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a> and make a new project.</li>
-      <li>Delete what is there and paste in <a href="https://github.com/corbingevenson-afk/classroom-due/blob/main/apps-script/Code.gs" target="_blank" rel="noopener">Code.gs from the repo</a>. Change <code>KEY</code> at the top to any password you like.</li>
+      <li>Delete what is there, then <button id="b-copy" style="padding:3px 9px;font-size:13px">Copy the script</button> and paste it in. Change <code>KEY</code> at the top to any password you like. <details><summary>Show the script</summary><textarea id="gs-view" rows="8" readonly style="font:12px/1.4 ui-monospace,monospace;margin-top:6px"></textarea></details></li>
       <li>Left sidebar, next to <b>Services</b> click <b>+</b>, pick <b>Google Classroom API</b>, Add.</li>
       <li>Top right <b>Deploy → New deployment</b>. Type: <b>Web app</b>. Execute as: <b>Me</b>. Who has access: <b>Anyone</b>. Deploy, then approve the permissions (Advanced → Go to project if it warns you).</li>
       <li>Copy the Web app URL (ends in <code>/exec</code>) and paste it below with your key.</li>
@@ -304,6 +377,9 @@ function renderSetup(){
     ${cfg.mode?`<button class="ghost" id="b-reset" style="color:var(--red)">Disconnect & clear data</button>`:''}
   </div>
   </div>`;
+  const gsrc=document.getElementById('gs').textContent.trim()+'
+'; $('#gs-view').value=gsrc;
+  $('#b-copy').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gsrc); toast('Script copied. Paste it into Apps Script.')}catch{ $('#gs-view').closest('details').open=true; $('#gs-view').select(); toast('Select all in the box and copy') }};
   $('#b-script').onclick=()=>{const url=$('#f-url').value.trim(); if(!/^https:\/\/script\.google\.com\/.+\/exec/.test(url)) return toast('Paste the Web app URL ending in /exec'); cfg={...cfg,mode:'script',scriptUrl:url,key:$('#f-key').value.trim()}; save(LS.cfg,cfg); renderMain(); sync();};
   $('#b-json').onclick=()=>{try{const raw=JSON.parse($('#f-json').value); if(raw.error) throw new Error(raw.error); data=normalize(raw); save(LS.data,data); cfg={...cfg,mode:cfg.mode||'script',scriptUrl:$('#f-url').value.trim()||cfg.scriptUrl||'',key:$('#f-key').value.trim()||cfg.key||''}; save(LS.cfg,cfg); renderMain(); toast('Loaded');}catch(e){toast('Bad JSON: '+e.message)}};
   $('#b-demo').onclick=()=>{cfg={...cfg,mode:'demo'}; save(LS.cfg,cfg); renderMain(); sync();};
