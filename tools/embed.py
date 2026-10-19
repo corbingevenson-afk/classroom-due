@@ -12,23 +12,38 @@ h = re.sub(r'<script type="text/plain" id="gs">.*?</script>\n(?:<script type="te
            lambda m: '<script type="text/plain" id="gs">\n' + gs + '</script>\n<script type="text/plain" id="gsman">\n' + man + '</script>\n', h, count=1, flags=re.S)
 
 # 2. setup steps
-steps = '''<details><summary>Setup steps (about 5 minutes)</summary><ol>
+steps = '''<details open><summary>Setup steps, start to finish</summary>
+    <p><b>Part 1: new project</b></p><ol>
       <li>On the account you use for Classroom, open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a> and make a new project.</li>
-      <li>Delete what is there, then <button id="b-copy" style="padding:3px 9px;font-size:13px">Copy the script</button> and paste it in. Change <code>KEY</code> at the top to any password you like. <details><summary>Show the script</summary><textarea id="gs-view" rows="8" readonly style="font:12px/1.4 ui-monospace,monospace;margin-top:6px"></textarea></details></li>
-      <li>Click <b>Project Settings</b> (the gear on the left), tick <b>Show "appsscript.json" manifest file in editor</b>. Back in the editor open <code>appsscript.json</code>, delete everything, then <button id="b-copyman" style="padding:3px 9px;font-size:13px">Copy manifest</button> and paste it in. Save. This is what lets the script read Classroom. <details><summary>Show the manifest</summary><textarea id="gsman-view" rows="6" readonly style="font:12px/1.4 ui-monospace,monospace;margin-top:6px"></textarea></details></li>
-      <li>Top right <b>Deploy → New deployment</b>. Type: <b>Web app</b>. Execute as: <b>Me</b>. Who has access: <b>Anyone</b>. Deploy, then approve the permissions (Advanced → Go to project if it warns you). Already deployed before? Use <b>Manage deployments → edit → New version → Deploy</b> instead.</li>
-      <li>Copy the Web app URL (ends in <code>/exec</code>) and paste it below with your key.</li>
+      <li>Click inside <code>Code.gs</code>, Ctrl+A, Delete. Then <button id="b-copy" style="padding:3px 9px;font-size:13px">Copy the script</button>, go back, Ctrl+V, Ctrl+S. Near the top you should see <code>var VERSION</code>. <details><summary>Show the script</summary><textarea id="gs-view" rows="10" readonly style="font:12px/1.4 ui-monospace,monospace;margin-top:6px"></textarea></details></li>
+      <li>Find <code>var KEY = 'change-me';</code> and change <code>change-me</code> to any password, keeping the quotes. Ctrl+S.</li>
     </ol>
-    <p style="margin-top:10px">If your school refuses the Classroom permission, the script falls back to your Classroom calendars and the app shows what Google said.</p>
+    <p><b>Part 2: the manifest</b></p><ol start="4">
+      <li>Left sidebar, gear icon (Project Settings). Tick <b>Show "appsscript.json" manifest file in editor</b>.</li>
+      <li>Left sidebar, <code>&lt; &gt;</code> icon (Editor). In Files click <code>appsscript.json</code>. Click inside it, Ctrl+A, Delete so it is empty.</li>
+      <li><button id="b-copyman" style="padding:3px 9px;font-size:13px">Copy manifest</button> then Ctrl+V, Ctrl+S. The file must be exactly these 11 lines:
+<pre id="gsman-view" style="margin:8px 0 0;padding:10px 12px;background:var(--card2);border:1px solid var(--line);border-radius:10px;font:12px/1.5 ui-monospace,monospace;white-space:pre;overflow-x:auto;user-select:all"></pre></li>
+    </ol>
+    <p><b>Part 3: test the permission</b></p><ol start="7">
+      <li>Click <code>Code.gs</code>. In the toolbar dropdown next to Run, pick <code>checkClassroom</code>. Click <b>Run</b>.</li>
+      <li>Review permissions, pick the school account. If it says "Google hasn't verified this app": Advanced → Go to (project) → Allow.</li>
+      <li>The Execution log at the bottom should say <b>CLASSROOM OK</b> with your classes. If it says CLASSROOM BLOCKED, send Claude that line.</li>
+    </ol>
+    <p><b>Part 4: publish</b></p><ol start="10">
+      <li>Top right <b>Deploy → New deployment</b>. Gear next to "Select type" → <b>Web app</b>.</li>
+      <li>Execute as: <b>Me</b>. Who has access: <b>Anyone</b>. Deploy. Copy the Web app URL (ends in <code>/exec</code>).</li>
+      <li>Paste it below with your key and hit Save &amp; sync. The status line should say <b>bridge v5</b>.</li>
+    </ol>
+    <p>Changed the script later? <b>Deploy → Manage deployments → pencil → Version: New version → Deploy</b>, or the old copy keeps running.</p>
     </details>'''
-h = re.sub(r'<details><summary>Setup steps \(about 5 minutes\)</summary><ol>.*?</ol></details>', lambda m: steps, h, count=1, flags=re.S)
+h = re.sub(r'<details( open)?><summary>Setup steps[^<]*</summary>.*?</details>\s*(?=<label>Web app URL)', lambda m: steps, h, count=1, flags=re.S)
 
 # 3. copy-manifest handler (idempotent)
 h = re.sub(r"^  const gman=.*\n|^  \$\('#gsman-view'\)\.value=gman;\n|^  \$\('#b-copyman'\)\.onclick=.*\n", '', h, flags=re.M)
 if True:
     anchor = "  $('#b-script').onclick=()=>{"
     handler = ("  const gman=document.getElementById('gsman').textContent.trim()+String.fromCharCode(10);\n"
-               "  $('#gsman-view').value=gman;\n  $('#b-copyman').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gman); toast('Manifest copied. Paste it over appsscript.json.')}catch{ $('#gsman-view').closest('details').open=true; $('#gsman-view').select(); toast('Select all in the box and copy') }};\n")
+               "  $('#gsman-view').textContent=gman;\n  $('#b-copyman').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gman); toast('Manifest copied. Paste it over appsscript.json.')}catch{ const r=document.createRange(); r.selectNodeContents($('#gsman-view')); getSelection().removeAllRanges(); getSelection().addRange(r); toast('Press Ctrl+C to copy the selected manifest') }};\n")
     assert anchor in h
     h = h.replace(anchor, handler + anchor, 1)
 

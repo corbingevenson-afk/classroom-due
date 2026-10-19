@@ -437,16 +437,30 @@ function renderSetup(){
   <div class="sc">
     <h3>Apps Script bridge <span class="tag">Recommended</span></h3>
     <p>A tiny script that runs on <b>your</b> Google account and hands this app your assignments. No developer console needed.</p>
-    <details><summary>Setup steps (about 5 minutes)</summary><ol>
+    <details open><summary>Setup steps, start to finish</summary>
+    <p><b>Part 1: new project</b></p><ol>
       <li>On the account you use for Classroom, open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a> and make a new project.</li>
-      <li>Delete what is there, then <button id="b-copy" style="padding:3px 9px;font-size:13px">Copy the script</button> and paste it in. Change <code>KEY</code> at the top to any password you like. <details><summary>Show the script</summary><textarea id="gs-view" rows="8" readonly style="font:12px/1.4 ui-monospace,monospace;margin-top:6px"></textarea></details></li>
-      <li>Top right <b>Deploy → New deployment</b>. Type: <b>Web app</b>. Execute as: <b>Me</b>. Who has access: <b>Anyone</b>. Deploy, then approve the permissions (Advanced → Go to project if it warns you).</li>
-      <li>Copy the Web app URL (ends in <code>/exec</code>) and paste it below with your key.</li>
+      <li>Click inside <code>Code.gs</code>, Ctrl+A, Delete. Then <button id="b-copy" style="padding:3px 9px;font-size:13px">Copy the script</button>, go back, Ctrl+V, Ctrl+S. Near the top you should see <code>var VERSION</code>. <details><summary>Show the script</summary><textarea id="gs-view" rows="10" readonly style="font:12px/1.4 ui-monospace,monospace;margin-top:6px"></textarea></details></li>
+      <li>Find <code>var KEY = 'change-me';</code> and change <code>change-me</code> to any password, keeping the quotes. Ctrl+S.</li>
     </ol>
-    <p style="margin-top:10px">That is enough for due dates: the script reads the calendar each class makes for you. No "add a service" step.</p>
-    <p><b>Optional, for Turned in / Late badges:</b> in the script editor open <b>Project Settings</b> (gear), tick <b>Show "appsscript.json" manifest file</b>, open that file, replace everything with <button id="b-copyman" style="padding:3px 9px;font-size:13px">Copy manifest</button>, save, then Deploy → Manage deployments → edit → New version → Deploy and approve the new permissions. If your school blocks the Classroom API the script just keeps using the calendars.</p>
-    </details>
-    <label>Web app URL</label><input id="f-url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(cfg.scriptUrl||'')}">
+    <p><b>Part 2: the manifest</b></p><ol start="4">
+      <li>Left sidebar, gear icon (Project Settings). Tick <b>Show "appsscript.json" manifest file in editor</b>.</li>
+      <li>Left sidebar, <code>&lt; &gt;</code> icon (Editor). In Files click <code>appsscript.json</code>. Click inside it, Ctrl+A, Delete so it is empty.</li>
+      <li><button id="b-copyman" style="padding:3px 9px;font-size:13px">Copy manifest</button> then Ctrl+V, Ctrl+S. The file must be exactly these 11 lines:
+<pre id="gsman-view" style="margin:8px 0 0;padding:10px 12px;background:var(--card2);border:1px solid var(--line);border-radius:10px;font:12px/1.5 ui-monospace,monospace;white-space:pre;overflow-x:auto;user-select:all"></pre></li>
+    </ol>
+    <p><b>Part 3: test the permission</b></p><ol start="7">
+      <li>Click <code>Code.gs</code>. In the toolbar dropdown next to Run, pick <code>checkClassroom</code>. Click <b>Run</b>.</li>
+      <li>Review permissions, pick the school account. If it says "Google hasn't verified this app": Advanced → Go to (project) → Allow.</li>
+      <li>The Execution log at the bottom should say <b>CLASSROOM OK</b> with your classes. If it says CLASSROOM BLOCKED, send Claude that line.</li>
+    </ol>
+    <p><b>Part 4: publish</b></p><ol start="10">
+      <li>Top right <b>Deploy → New deployment</b>. Gear next to "Select type" → <b>Web app</b>.</li>
+      <li>Execute as: <b>Me</b>. Who has access: <b>Anyone</b>. Deploy. Copy the Web app URL (ends in <code>/exec</code>).</li>
+      <li>Paste it below with your key and hit Save &amp; sync. The status line should say <b>bridge v5</b>.</li>
+    </ol>
+    <p>Changed the script later? <b>Deploy → Manage deployments → pencil → Version: New version → Deploy</b>, or the old copy keeps running.</p>
+    </details><label>Web app URL</label><input id="f-url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(cfg.scriptUrl||'')}">
     <label>Key (same as KEY in the script)</label><input id="f-key" placeholder="your key" value="${esc(cfg.key||'')}">
     <div class="row"><button class="primary" id="b-script">Save & sync</button></div>
     <details><summary>Fetch blocked? Paste JSON instead</summary>
@@ -477,8 +491,8 @@ function renderSetup(){
   const gsrc=document.getElementById('gs').textContent.trim()+'\n'; $('#gs-view').value=gsrc;
   $('#b-copy').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gsrc); toast('Script copied. Paste it into Apps Script.')}catch{ $('#gs-view').closest('details').open=true; $('#gs-view').select(); toast('Select all in the box and copy') }};
   const gman=document.getElementById('gsman').textContent.trim()+String.fromCharCode(10);
-  $('#gsman-view').value=gman;
-  $('#b-copyman').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gman); toast('Manifest copied. Paste it over appsscript.json.')}catch{ $('#gsman-view').closest('details').open=true; $('#gsman-view').select(); toast('Select all in the box and copy') }};
+  $('#gsman-view').textContent=gman;
+  $('#b-copyman').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gman); toast('Manifest copied. Paste it over appsscript.json.')}catch{ const r=document.createRange(); r.selectNodeContents($('#gsman-view')); getSelection().removeAllRanges(); getSelection().addRange(r); toast('Press Ctrl+C to copy the selected manifest') }};
   $('#b-script').onclick=()=>{const url=$('#f-url').value.trim(); if(!/^https:\/\/script\.google\.com\/.+\/exec/.test(url)) return toast('Paste the Web app URL ending in /exec'); cfg={...cfg,mode:'script',scriptUrl:url,key:$('#f-key').value.trim()}; save(LS.cfg,cfg); renderMain(); sync();};
   $('#b-json').onclick=()=>{try{const raw=JSON.parse($('#f-json').value); if(raw.error) throw new Error(raw.error); data=normalize(raw); save(LS.data,data); cfg={...cfg,mode:cfg.mode||'script',scriptUrl:$('#f-url').value.trim()||cfg.scriptUrl||'',key:$('#f-key').value.trim()||cfg.key||''}; save(LS.cfg,cfg); renderMain(); toast('Loaded');}catch(e){toast('Bad JSON: '+e.message)}};
   $('#b-demo').onclick=()=>{cfg={...cfg,mode:'demo'}; save(LS.cfg,cfg); renderMain(); sync();};
