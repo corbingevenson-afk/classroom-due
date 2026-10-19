@@ -1,0 +1,385 @@
+<title>Classroom Due</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{
+  --bg:#0f1115;--card:#171a21;--card2:#1d2129;--line:#272b35;--text:#e9ebf1;--mute:#8d93a3;
+  --acc:#6b93ff;--red:#ff5d6e;--amber:#ffb84d;--green:#3fd08f;--purple:#b48cff;--teal:#3ccfcf;--pink:#ff7ab8;
+  --r:14px;--shadow:0 8px 30px rgba(0,0,0,.35);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){--bg:#f4f5f8;--card:#ffffff;--card2:#f1f3f7;--line:#e2e5ec;--text:#161922;--mute:#6a7080;--shadow:0 8px 30px rgba(20,30,60,.08)}
+}
+:root[data-theme="light"]{--bg:#f4f5f8;--card:#ffffff;--card2:#f1f3f7;--line:#e2e5ec;--text:#161922;--mute:#6a7080;--shadow:0 8px 30px rgba(20,30,60,.08)}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--acc)}
+button{font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card2);border-radius:10px;padding:8px 12px}
+button:hover{border-color:var(--acc)}
+button.primary{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+button.ghost{background:transparent}
+input,textarea{font:inherit;color:inherit;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+input:focus,textarea:focus{outline:none;border-color:var(--acc)}
+label{display:block;font-size:13px;color:var(--mute);margin:12px 0 6px}
+.wrap{max-width:720px;margin:0 auto;padding-block:16px 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;align-items:center;gap:10px;padding:8px 0 14px}
+header h1{font-size:22px;margin:0;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+header .sp{flex:1}
+.iconbtn{width:38px;height:38px;padding:0;display:inline-grid;place-items:center;border-radius:11px}
+.iconbtn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;font-size:13px;display:inline-flex;align-items:center;gap:7px}
+.chip .dot{width:9px;height:9px;border-radius:50%;background:var(--c,var(--acc))}
+.chip.on{border-color:var(--c,var(--acc));box-shadow:inset 0 0 0 1px var(--c,var(--acc))}
+.chip.stat{cursor:default}
+.chip.stat b{font-weight:700}
+.status{font-size:13px;color:var(--mute);margin:0 0 14px;min-height:18px;display:flex;align-items:center;gap:8px}
+.status.err{color:var(--red)}
+.group{margin:0 0 18px}
+.group h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gc,var(--mute));margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.group h2 small{font-weight:600;color:var(--mute);letter-spacing:0;text-transform:none;font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item.done .t{text-decoration:line-through;color:var(--mute)}
+.cb{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);background:transparent;display:grid;place-items:center;padding:0;flex:none}
+.cb svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.cb.on{background:var(--green);border-color:var(--green)}
+.cb.on svg{opacity:1}
+.cb:disabled{cursor:default;opacity:.85}
+.t{font-weight:600;margin:0 0 3px;overflow-wrap:anywhere}
+.m{font-size:13px;color:var(--mute);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.m .course{color:var(--c);font-weight:600}
+.badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:var(--card2);color:var(--mute);letter-spacing:.02em}
+.badge.red{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
+.badge.amber{background:color-mix(in srgb,var(--amber) 20%,transparent);color:var(--amber)}
+.badge.green{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+.right{text-align:right;font-size:13px;color:var(--mute);white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.right .rel{font-weight:700;color:var(--gc,var(--text))}
+.right a{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:8px;color:var(--mute)}
+.right a:hover{background:var(--card2);color:var(--acc)}
+.right a svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.empty{padding:40px 20px;text-align:center;color:var(--mute)}
+.empty b{display:block;color:var(--text);font-size:18px;margin-bottom:6px}
+/* setup */
+.setup h1{font-size:26px;letter-spacing:-.02em;margin:10px 0 4px}
+.setup p.lead{color:var(--mute);margin:0 0 18px}
+.sc{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin:0 0 14px;box-shadow:var(--shadow)}
+.sc h3{margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:8px}
+.sc h3 .tag{font-size:11px;font-weight:700;color:var(--green);background:color-mix(in srgb,var(--green) 16%,transparent);padding:2px 7px;border-radius:6px}
+.sc p{margin:0 0 6px;color:var(--mute);font-size:14px}
+.sc ol{margin:8px 0 0;padding-left:20px;color:var(--mute);font-size:14px}
+.sc ol li{margin:4px 0}
+.sc code{background:var(--card2);padding:1px 6px;border-radius:5px;font-size:13px;color:var(--text)}
+.row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+details summary{cursor:pointer;color:var(--acc);font-size:14px;margin-top:8px}
+.hidden{display:none !important}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--card);border:1px solid var(--line);padding:10px 14px;border-radius:12px;box-shadow:var(--shadow);font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+@media (max-width:420px){.item{grid-template-columns:auto 1fr;}.right{grid-column:2;flex-direction:row;justify-content:space-between;align-items:center}}
+</style>
+<div class="wrap" id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script type="text/plain" id="gs">
+/**
+ * Classroom Due bridge
+ * 1. Paste this into a new project at script.google.com (use the account you use for Classroom).
+ * 2. Change KEY below to any password you like.
+ * 3. Services (+) -> Google Classroom API -> Add.
+ * 4. Deploy -> New deployment -> Web app. Execute as: Me. Who has access: Anyone. Deploy and approve.
+ * 5. Paste the Web app URL and the key into the Classroom Due app.
+ */
+var KEY = 'change-me';   // <- pick your own
+var DAYS_BACK = 45;      // how far back to include old assignments
+
+function doGet(e) {
+  var p = (e && e.parameter) || {};
+  if (KEY && p.key !== KEY) return out({ error: 'Wrong key. Add ?key=YOURKEY or fix the key in the app.' });
+  try { return out(collect()); }
+  catch (err) { return out({ error: 'Script error: ' + (err && err.message ? err.message : err) }); }
+}
+
+function collect() {
+  var courses = [], token;
+  do {
+    var r = Classroom.Courses.list({ courseStates: ['ACTIVE'], studentId: 'me', pageSize: 100, pageToken: token });
+    courses = courses.concat(r.courses || []);
+    token = r.nextPageToken;
+  } while (token);
+
+  var cutoff = Date.now() - DAYS_BACK * 864e5;
+  var work = [], subs = [];
+  courses.forEach(function (c) {
+    var t;
+    do {
+      var w = Classroom.Courses.CourseWork.list(c.id, { courseWorkStates: ['PUBLISHED'], orderBy: 'dueDate desc', pageSize: 100, pageToken: t });
+      (w.courseWork || []).forEach(function (cw) { if (keep(cw, cutoff)) work.push(slimWork(cw)); });
+      t = w.nextPageToken;
+    } while (t);
+    var s;
+    do {
+      var r2 = Classroom.Courses.CourseWork.StudentSubmissions.list(c.id, '-', { userId: 'me', pageSize: 100, pageToken: s });
+      (r2.studentSubmissions || []).forEach(function (x) { subs.push({ courseWorkId: x.courseWorkId, state: x.state, late: !!x.late }); });
+      s = r2.nextPageToken;
+    } while (s);
+  });
+
+  return {
+    fetchedAt: new Date().toISOString(),
+    courses: courses.map(function (c) { return { id: c.id, name: c.name, section: c.section || '' }; }),
+    work: work,
+    subs: subs
+  };
+}
+
+function keep(cw, cutoff) {
+  if (cw.dueDate && cw.dueDate.year) {
+    var d = cw.dueDate, t = cw.dueTime || { hours: 23, minutes: 59 };
+    return Date.UTC(d.year, d.month - 1, d.day, t.hours || 0, t.minutes || 0) >= cutoff;
+  }
+  return Date.parse(cw.creationTime || 0) >= cutoff;
+}
+
+function slimWork(cw) {
+  return {
+    id: cw.id, courseId: cw.courseId, title: cw.title, description: (cw.description || '').slice(0, 160),
+    dueDate: cw.dueDate || null, dueTime: cw.dueTime || null, maxPoints: cw.maxPoints || null,
+    alternateLink: cw.alternateLink, workType: cw.workType, creationTime: cw.creationTime
+  };
+}
+
+function out(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+</script>
+
+<script>
+'use strict';
+// ---------- state ----------
+const LS={cfg:'cd.cfg',data:'cd.data',done:'cd.done',show:'cd.showdone',theme:'cd.theme'};
+const load=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch{return d}};
+const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
+const PAL=['#6b93ff','#3fd08f','#ffb84d','#b48cff','#3ccfcf','#ff7ab8','#ff5d6e','#9ad64a'];
+let cfg=load(LS.cfg,{}), data=load(LS.data,null), done=new Set(load(LS.done,[])), showDone=load(LS.show,false), filterCourse=null;
+const $=s=>document.querySelector(s), app=$('#app');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const theme=load(LS.theme,null); if(theme) document.documentElement.dataset.theme=theme;
+
+// ---------- icons ----------
+const I={
+  refresh:'<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>',
+  gear:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  eye:'<svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eyeoff:'<svg viewBox="0 0 24 24"><path d="M17.9 17.9A10 10 0 0 1 12 19C5 19 1 12 1 12a18 18 0 0 1 5.1-5.9M9.9 4.2A9 9 0 0 1 12 5c7 0 11 7 11 7a18 18 0 0 1-2.2 3.2M14.1 14.1a3 3 0 1 1-4.2-4.2"/><path d="M1 1l22 22"/></svg>',
+  sun:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  ext:'<svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>',
+  check:'<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>',
+  cap:'<svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:var(--acc);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>'
+};
+
+// ---------- helpers ----------
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200)}
+function toDue(d,t){
+  if(!d||!d.year) return null;
+  if(t&&t.hours!=null) return Date.UTC(d.year,d.month-1,d.day,t.hours,t.minutes||0);
+  return new Date(d.year,d.month-1,d.day,23,59).getTime(); // no time set = end of that day, local
+}
+const DAY=864e5;
+const startOfDay=ms=>{const x=new Date(ms);x.setHours(0,0,0,0);return x.getTime()};
+function fmtDue(ms){
+  const d=new Date(ms), now=Date.now(), sod=startOfDay(now), dd=Math.round((startOfDay(ms)-sod)/DAY);
+  const time=d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  let day;
+  if(dd===0) day='Today'; else if(dd===1) day='Tomorrow'; else if(dd===-1) day='Yesterday';
+  else if(dd>1&&dd<7) day=d.toLocaleDateString([],{weekday:'long'});
+  else day=d.toLocaleDateString([],{month:'short',day:'numeric'});
+  return `${day} · ${time}`;
+}
+function rel(ms){
+  const diff=ms-Date.now(), a=Math.abs(diff), h=Math.round(a/36e5), dd=Math.round(a/DAY);
+  if(diff<0) return dd>=1?`${dd}d overdue`:(h>=1?`${h}h overdue`:'just passed');
+  if(h<1) return `${Math.max(1,Math.round(a/6e4))}m left`;
+  if(h<24) return `${h}h left`;
+  return `${dd}d left`;
+}
+
+// ---------- normalize Classroom data ----------
+function normalize(raw){
+  const courses=(raw.courses||[]).map((c,i)=>({id:String(c.id),name:c.name||'Class',section:c.section||'',color:PAL[i%PAL.length]}));
+  const byC=Object.fromEntries(courses.map(c=>[c.id,c]));
+  const sub={}; (raw.subs||[]).forEach(s=>{sub[String(s.courseWorkId)]=s});
+  const items=(raw.work||[]).map(w=>{
+    const c=byC[String(w.courseId)]||{name:'Class',color:'#888'}; const s=sub[String(w.id)]||{};
+    const st=s.state||'';
+    return {id:String(w.id),courseId:String(w.courseId),course:c.name,color:c.color,title:w.title||'(untitled)',
+      due:toDue(w.dueDate,w.dueTime),points:w.maxPoints||null,link:w.alternateLink||'',type:w.workType||'',
+      handedIn:st==='TURNED_IN'||st==='RETURNED',late:!!s.late,desc:(w.description||'').slice(0,160)};
+  });
+  return {fetchedAt:raw.fetchedAt||new Date().toISOString(),courses,items};
+}
+
+// ---------- data sources ----------
+async function fetchScript(){
+  if(!cfg.scriptUrl) throw new Error('No script URL saved');
+  const u=new URL(cfg.scriptUrl); if(cfg.key) u.searchParams.set('key',cfg.key);
+  let r; try{ r=await fetch(u.toString(),{redirect:'follow',cache:'no-store'}); }
+  catch(e){ throw new Error('This copy of the app cannot fetch directly. Open Settings and use "Paste JSON" instead.'); }
+  let j; try{ j=await r.json(); }catch{ throw new Error('Script did not return JSON. Check the deploy is a Web app with access "Anyone". Or use "Paste JSON".'); }
+  if(j.error) throw new Error(j.error);
+  return j;
+}
+let tokenClient=null, token=load('cd.tok',null);
+function ensureGIS(){return new Promise((res,rej)=>{ if(window.google?.accounts?.oauth2) return res(); const s=document.createElement('script'); s.src='https://accounts.google.com/gsi/client'; s.onload=res; s.onerror=()=>rej(new Error('Could not load Google sign-in')); document.head.appendChild(s); })}
+const SCOPES='https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.coursework.me.readonly https://www.googleapis.com/auth/classroom.student-submissions.me.readonly';
+async function getToken(force){
+  if(!force&&token&&token.exp>Date.now()+60e3) return token.v;
+  await ensureGIS();
+  return new Promise((res,rej)=>{
+    tokenClient=google.accounts.oauth2.initTokenClient({client_id:cfg.clientId,scope:SCOPES,
+      callback:r=>{ if(r.error) return rej(new Error(r.error_description||r.error)); token={v:r.access_token,exp:Date.now()+(r.expires_in||3600)*1000}; save('cd.tok',token); res(token.v); },
+      error_callback:e=>rej(new Error(e.message||e.type||'Sign-in cancelled'))});
+    tokenClient.requestAccessToken({prompt: token?'':'consent'});
+  });
+}
+async function gapi(url,tok){const r=await fetch(url,{headers:{Authorization:'Bearer '+tok}}); const j=await r.json().catch(()=>({})); if(!r.ok){ if(r.status===401){token=null;save('cd.tok',null)} throw new Error(j.error?.message||('HTTP '+r.status)); } return j;}
+async function pageAll(url,key,tok){let out=[],pt;do{const j=await gapi(url+(pt?'&pageToken='+pt:''),tok);out=out.concat(j[key]||[]);pt=j.nextPageToken}while(pt);return out}
+async function fetchOAuth(){
+  if(!cfg.clientId) throw new Error('No client ID saved');
+  const tok=await getToken();
+  const base='https://classroom.googleapis.com/v1/courses';
+  const courses=await pageAll(base+'?courseStates=ACTIVE&studentId=me&pageSize=100','courses',tok);
+  const cutoff=Date.now()-45*DAY; let work=[],subs=[];
+  for(const c of courses){
+    const w=await pageAll(`${base}/${c.id}/courseWork?courseWorkStates=PUBLISHED&orderBy=dueDate%20desc&pageSize=100`,'courseWork',tok);
+    work=work.concat(w.filter(x=>{const d=toDue(x.dueDate,x.dueTime); return d? d>=cutoff : Date.parse(x.creationTime||0)>=cutoff}));
+    subs=subs.concat(await pageAll(`${base}/${c.id}/courseWork/-/studentSubmissions?userId=me&pageSize=100`,'studentSubmissions',tok));
+  }
+  return {fetchedAt:new Date().toISOString(),courses,work,subs};
+}
+function demoRaw(){
+  const d=(off,h=23,m=59)=>{const x=new Date(Date.now()+off*DAY);x.setHours(h,m,0,0);const u=new Date(x);return {dueDate:{year:u.getUTCFullYear(),month:u.getUTCMonth()+1,day:u.getUTCDate()},dueTime:{hours:u.getUTCHours(),minutes:u.getUTCMinutes()}}};
+  const W=(id,courseId,title,due,pts,desc)=>({id,courseId,title,maxPoints:pts,alternateLink:'https://classroom.google.com',workType:'ASSIGNMENT',description:desc,...(due||{})});
+  return {courses:[{id:'1',name:'Algebra 1',section:'P3'},{id:'2',name:'English 9',section:'P1'},{id:'3',name:'Biology',section:'P5'},{id:'4',name:'World History',section:'P6'}],
+    work:[W('a','1','Unit 4 Review Worksheet',d(-2),20,'Pages 112-114, all odds'),W('b','2','Essay draft: The Outsiders',d(0,23,30),50,'2 pages, MLA format'),W('c','3','Cell Lab Report',d(1,8,0),30,''),
+      W('d','1','Khan Academy: Linear Functions',d(1),10,''),W('e','4','Chapter 7 Notes',d(3),15,''),W('f','3','Quiz: Mitosis',d(5,8,0),25,''),W('g','2','Vocab list 8',d(9),10,''),W('h','4','Map project',null,40,'Due date TBD'),W('i','1','Factoring practice',d(-6),10,'')],
+    subs:[{courseWorkId:'i',state:'TURNED_IN',late:false},{courseWorkId:'a',state:'NEW',late:true}]};
+}
+
+// ---------- sync ----------
+let syncing=false;
+async function sync(){
+  if(syncing) return; syncing=true; setStatus('Syncing…');
+  try{
+    const raw=cfg.mode==='demo'?demoRaw():cfg.mode==='oauth'?await fetchOAuth():await fetchScript();
+    data=normalize(raw); save(LS.data,data); render(); toast('Synced');
+  }catch(e){ render(); setStatus(e.message,true); }
+  syncing=false;
+}
+function setStatus(m,err){const s=$('#status'); if(!s) return; s.textContent=m; s.classList.toggle('err',!!err);}
+
+// ---------- render ----------
+function render(){ if(!cfg.mode) return renderSetup(); renderMain(); }
+function renderMain(){
+  const now=Date.now(), sod=startOfDay(now);
+  const items=(data?.items||[]).map(x=>({...x,isDone:x.handedIn||done.has(x.id)}));
+  const vis=items.filter(x=>(!filterCourse||x.courseId===filterCourse)&&(showDone||!x.isDone));
+  const G=[{k:'over',t:'Overdue',c:'var(--red)'},{k:'today',t:'Today',c:'var(--amber)'},{k:'tmrw',t:'Tomorrow',c:'var(--acc)'},{k:'week',t:'This week',c:'var(--teal)'},{k:'later',t:'Later',c:'var(--mute)'},{k:'none',t:'No due date',c:'var(--mute)'},{k:'past',t:'Past',c:'var(--mute)'}];
+  const bucket=x=>{ if(x.due==null) return 'none'; if(x.due<now) return x.isDone?'past':'over'; const dd=Math.floor((startOfDay(x.due)-sod)/DAY); if(dd<=0) return 'today'; if(dd===1) return 'tmrw'; if(dd<7) return 'week'; return 'later'; };
+  const groups={}; vis.forEach(x=>{(groups[bucket(x)]??=[]).push(x)});
+  Object.values(groups).forEach(a=>a.sort((p,q)=>(p.due??Infinity)-(q.due??Infinity)));
+  const over=items.filter(x=>!x.isDone&&x.due!=null&&x.due<now).length;
+  const today=items.filter(x=>!x.isDone&&x.due!=null&&x.due>=now&&startOfDay(x.due)===sod).length;
+  const week=items.filter(x=>!x.isDone&&x.due!=null&&x.due>=now&&x.due<sod+7*DAY).length;
+  const courses=data?.courses||[];
+  app.innerHTML=`
+  <header>
+    <h1>${I.cap}Classroom Due</h1><span class="sp"></span>
+    <button class="iconbtn" id="b-theme" title="Theme">${I.sun}</button>
+    <button class="iconbtn" id="b-show" title="${showDone?'Hide done':'Show done'}">${showDone?I.eyeoff:I.eye}</button>
+    <button class="iconbtn" id="b-sync" title="Sync now">${I.refresh}</button>
+    <button class="iconbtn" id="b-set" title="Settings">${I.gear}</button>
+  </header>
+  <div class="chips">
+    <span class="chip stat" style="--c:var(--red)"><span class="dot"></span><b>${over}</b> overdue</span>
+    <span class="chip stat" style="--c:var(--amber)"><span class="dot"></span><b>${today}</b> today</span>
+    <span class="chip stat" style="--c:var(--teal)"><span class="dot"></span><b>${week}</b> this week</span>
+  </div>
+  ${courses.length?`<div class="chips" id="courses">${courses.map(c=>`<button class="chip ${filterCourse===c.id?'on':''}" data-c="${c.id}" style="--c:${c.color}"><span class="dot"></span>${esc(c.name)}</button>`).join('')}</div>`:''}
+  <div class="status" id="status">${data?`Last synced ${new Date(data.fetchedAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}${cfg.mode==='demo'?' · demo data':''}`:'Not synced yet'}</div>
+  ${vis.length?G.filter(g=>groups[g.k]).map(g=>`
+    <section class="group" style="--gc:${g.c}"><h2>${g.t} <small>${groups[g.k].length}</small></h2><div class="card">
+      ${groups[g.k].map(x=>`<div class="item ${x.isDone?'done':''}" style="--c:${x.color}">
+        <button class="cb ${x.isDone?'on':''}" data-id="${x.id}" ${x.handedIn?'disabled title="Turned in on Classroom"':'title="Mark done"'}>${I.check}</button>
+        <div><p class="t">${esc(x.title)}</p><div class="m"><span class="course">${esc(x.course)}</span>${x.points?`<span>${x.points} pts</span>`:''}${x.handedIn?'<span class="badge green">Turned in</span>':x.late?'<span class="badge red">Late</span>':(x.due!=null&&x.due<now&&!x.isDone)?'<span class="badge red">Missing</span>':''}${x.desc?`<span>${esc(x.desc)}</span>`:''}</div></div>
+        <div class="right">${x.due!=null?`<span class="rel">${x.isDone?'':rel(x.due)}</span><span>${fmtDue(x.due)}</span>`:'<span>No date</span>'}${x.link?`<a href="${esc(x.link)}" target="_blank" rel="noopener" title="Open in Classroom">${I.ext}</a>`:''}</div>
+      </div>`).join('')}
+    </div></section>`).join('')
+  :`<div class="card"><div class="empty">${data?`<b>All clear</b>Nothing due${filterCourse?' for this class':''}. ${showDone?'':'Tap the eye to see finished work.'}`:`<b>Nothing here yet</b>Hit sync to pull your Classroom.`}</div></div>`}`;
+  $('#b-sync').onclick=()=>sync();
+  $('#b-set').onclick=()=>renderSetup();
+  $('#b-show').onclick=()=>{showDone=!showDone;save(LS.show,showDone);renderMain()};
+  $('#b-theme').onclick=()=>{const cur=document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');const n=cur==='dark'?'light':'dark';document.documentElement.dataset.theme=n;save(LS.theme,n)};
+  app.querySelectorAll('#courses .chip').forEach(b=>b.onclick=()=>{filterCourse=filterCourse===b.dataset.c?null:b.dataset.c;renderMain()});
+  app.querySelectorAll('.cb:not(:disabled)').forEach(b=>b.onclick=()=>{const id=b.dataset.id; done.has(id)?done.delete(id):done.add(id); save(LS.done,[...done]); renderMain();});
+}
+
+function renderSetup(){
+  app.innerHTML=`<div class="setup">
+  <h1>${cfg.mode?'Settings':'Classroom Due'}</h1>
+  <p class="lead">Pull your Google Classroom assignments into one list with due dates, overdue and what is turned in.</p>
+
+  <div class="sc">
+    <h3>Apps Script bridge <span class="tag">Recommended</span></h3>
+    <p>A tiny script that runs on <b>your</b> Google account and hands this app your assignments. No developer console needed.</p>
+    <details><summary>Setup steps (about 5 minutes)</summary><ol>
+      <li>On the account you use for Classroom, open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a> and make a new project.</li>
+      <li>Delete what is there, then <button id="b-copy" style="padding:3px 9px;font-size:13px">Copy the script</button> and paste it in. Change <code>KEY</code> at the top to any password you like. <details><summary>Show the script</summary><textarea id="gs-view" rows="8" readonly style="font:12px/1.4 ui-monospace,monospace;margin-top:6px"></textarea></details></li>
+      <li>Left sidebar, next to <b>Services</b> click <b>+</b>, pick <b>Google Classroom API</b>, Add.</li>
+      <li>Top right <b>Deploy → New deployment</b>. Type: <b>Web app</b>. Execute as: <b>Me</b>. Who has access: <b>Anyone</b>. Deploy, then approve the permissions (Advanced → Go to project if it warns you).</li>
+      <li>Copy the Web app URL (ends in <code>/exec</code>) and paste it below with your key.</li>
+    </ol></details>
+    <label>Web app URL</label><input id="f-url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(cfg.scriptUrl||'')}">
+    <label>Key (same as KEY in the script)</label><input id="f-key" placeholder="your key" value="${esc(cfg.key||'')}">
+    <div class="row"><button class="primary" id="b-script">Save & sync</button></div>
+    <details><summary>Fetch blocked? Paste JSON instead</summary>
+      <p>Open your Web app URL in a new tab with <code>?key=YOURKEY</code> on the end, select all, copy, and paste here.</p>
+      <textarea id="f-json" rows="4" placeholder='{"courses":[…'></textarea>
+      <div class="row"><button id="b-json">Load pasted data</button></div>
+    </details>
+  </div>
+
+  <div class="sc">
+    <h3>Try it with demo data</h3>
+    <p>See how the app looks with made-up classes. Switch to the real thing any time.</p>
+    <div class="row"><button id="b-demo">Use demo data</button></div>
+  </div>
+
+  <details><summary>Advanced: sign in with a Google OAuth client ID</summary>
+  <div class="sc" style="margin-top:10px">
+    <p>Needs a Google Cloud project with the Classroom API enabled and a Web OAuth client whose authorized JavaScript origin is <code>${esc(location.origin)}</code>. School accounts for under-18 users often block this, so try the bridge first.</p>
+    <label>OAuth client ID</label><input id="f-cid" placeholder="xxxx.apps.googleusercontent.com" value="${esc(cfg.clientId||'')}">
+    <div class="row"><button id="b-oauth">Sign in with Google</button></div>
+  </div></details>
+
+  <div class="row" style="margin-top:18px">
+    ${cfg.mode?`<button class="ghost" id="b-back">Back</button>`:''}
+    ${cfg.mode?`<button class="ghost" id="b-reset" style="color:var(--red)">Disconnect & clear data</button>`:''}
+  </div>
+  </div>`;
+  const gsrc=document.getElementById('gs').textContent.trim()+'\n'; $('#gs-view').value=gsrc;
+  $('#b-copy').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gsrc); toast('Script copied. Paste it into Apps Script.')}catch{ $('#gs-view').closest('details').open=true; $('#gs-view').select(); toast('Select all in the box and copy') }};
+  $('#b-script').onclick=()=>{const url=$('#f-url').value.trim(); if(!/^https:\/\/script\.google\.com\/.+\/exec/.test(url)) return toast('Paste the Web app URL ending in /exec'); cfg={...cfg,mode:'script',scriptUrl:url,key:$('#f-key').value.trim()}; save(LS.cfg,cfg); renderMain(); sync();};
+  $('#b-json').onclick=()=>{try{const raw=JSON.parse($('#f-json').value); if(raw.error) throw new Error(raw.error); data=normalize(raw); save(LS.data,data); cfg={...cfg,mode:cfg.mode||'script',scriptUrl:$('#f-url').value.trim()||cfg.scriptUrl||'',key:$('#f-key').value.trim()||cfg.key||''}; save(LS.cfg,cfg); renderMain(); toast('Loaded');}catch(e){toast('Bad JSON: '+e.message)}};
+  $('#b-demo').onclick=()=>{cfg={...cfg,mode:'demo'}; save(LS.cfg,cfg); renderMain(); sync();};
+  $('#b-oauth').onclick=()=>{const cid=$('#f-cid').value.trim(); if(!cid.endsWith('.apps.googleusercontent.com')) return toast('That does not look like a client ID'); cfg={...cfg,mode:'oauth',clientId:cid}; save(LS.cfg,cfg); token=null; renderMain(); sync();};
+  $('#b-back')&&($('#b-back').onclick=()=>renderMain());
+  $('#b-reset')&&($('#b-reset').onclick=()=>{ if(!confirm('Clear saved connection and data?')) return; Object.values(LS).forEach(k=>localStorage.removeItem(k)); localStorage.removeItem('cd.tok'); cfg={}; data=null; done=new Set(); renderSetup(); });
+}
+
+// ---------- boot ----------
+render();
+if(cfg.mode&&navigator.onLine) sync();
+setInterval(()=>{ if(cfg.mode&&document.visibilityState==='visible') renderMain(); },60e3);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&cfg.mode&&data&&Date.now()-Date.parse(data.fetchedAt)>15*60e3) sync(); });
+
+</script>

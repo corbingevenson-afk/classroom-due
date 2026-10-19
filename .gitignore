@@ -1,2 +1,4 @@
 _c.js
 _gs.js
+.wrangler/
+node_modules/
