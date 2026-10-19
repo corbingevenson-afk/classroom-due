@@ -10,6 +10,7 @@
  * It reads the Classroom API directly (assignments + turned-in status). If your school refuses that,
  * it falls back to your Classroom calendars and tells the app why.
  */
+var VERSION = 3;         // shown in the app so you can tell the new script is live
 var KEY = 'change-me';   // <- pick your own
 var DAYS_BACK = 45;      // how far back to include old assignments
 var DAYS_AHEAD = 120;    // how far ahead to look in calendars
@@ -121,5 +122,6 @@ function viaCalendar() {
 }
 
 function out(obj) {
+  obj.version = VERSION;
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }

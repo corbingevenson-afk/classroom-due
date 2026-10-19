@@ -33,9 +33,9 @@ if True:
     h = h.replace(anchor, handler + anchor, 1)
 
 # 4. carry source + show calendar mode in the status line
-ret_new = "return {fetchedAt:raw.fetchedAt||new Date().toISOString(),source:raw.source||'',apiNote:raw.apiNote||'',courses,items};"
+ret_new = "return {fetchedAt:raw.fetchedAt||new Date().toISOString(),source:raw.source||'',apiNote:raw.apiNote||'',version:raw.version||0,courses,items};"
 h, n1 = re.subn(r"return \{fetchedAt:raw\.fetchedAt\|\|new Date\(\)\.toISOString\(\),[^\n]*?courses,items\};", lambda m: ret_new, h, count=1)
-tail_new = ("${cfg.mode==='demo'?' · demo data':''}${data?.source==='calendar'?' · calendar mode':''}`:'Not synced yet'}</div>"
+tail_new = ("${cfg.mode==='demo'?' · demo data':''}${data?.source==='calendar'?' · calendar mode':''}${data?.version?` · bridge v${data.version}`:' · OLD script, redeploy'}`:'Not synced yet'}</div>"
             "${data?.apiNote?`<div class=\"status err\" id=\"apinote\">Classroom API refused: ${esc(data.apiNote)} "
             "${/insufficient|scope/i.test(data.apiNote)?'Do step 3 (paste the manifest) and redeploy as a new version.'"
             ":/not been used|disabled|blocked|403/i.test(data.apiNote)?'Your school blocks the Classroom API for scripts. Tell Claude this message.':''}</div>`:''}")

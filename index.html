@@ -104,6 +104,7 @@ details summary{cursor:pointer;color:var(--acc);font-size:14px;margin-top:8px}
  * It reads the Classroom API directly (assignments + turned-in status). If your school refuses that,
  * it falls back to your Classroom calendars and tells the app why.
  */
+var VERSION = 3;         // shown in the app so you can tell the new script is live
 var KEY = 'change-me';   // <- pick your own
 var DAYS_BACK = 45;      // how far back to include old assignments
 var DAYS_AHEAD = 120;    // how far ahead to look in calendars
@@ -215,6 +216,7 @@ function viaCalendar() {
 }
 
 function out(obj) {
+  obj.version = VERSION;
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 </script>
@@ -297,7 +299,7 @@ function normalize(raw){
       due:toDue(w.dueDate,w.dueTime),points:w.maxPoints||null,link:w.alternateLink||'',type:w.workType||'',
       handedIn:st==='TURNED_IN'||st==='RETURNED',late:!!s.late,desc:(w.description||'').slice(0,160)};
   });
-  return {fetchedAt:raw.fetchedAt||new Date().toISOString(),source:raw.source||'',apiNote:raw.apiNote||'',courses,items};
+  return {fetchedAt:raw.fetchedAt||new Date().toISOString(),source:raw.source||'',apiNote:raw.apiNote||'',version:raw.version||0,courses,items};
 }
 
 // ---------- data sources ----------
@@ -307,7 +309,7 @@ async function fetchScript(){
   let r; try{ r=await fetch(u.toString(),{redirect:'follow',cache:'no-store'}); }
   catch(e){ throw new Error('Could not reach the script (blocked or offline). Open Settings and use "Paste JSON" instead.'); }
   let j; try{ j=await r.json(); }catch{ throw new Error('Script did not return JSON. Check the deploy is a Web app with access "Anyone". Or use "Paste JSON".'); }
-  if(j.error) throw new Error(j.error);
+  if(j.error) throw new Error(j.error+(j.version?' (bridge v'+j.version+')':' (OLD script: paste the new script and make a NEW deployment)'));
   return j;
 }
 let tokenClient=null, token=load('cd.tok',null);
@@ -387,7 +389,7 @@ function renderMain(){
     <span class="chip stat" style="--c:var(--teal)"><span class="dot"></span><b>${week}</b> this week</span>
   </div>
   ${courses.length?`<div class="chips" id="courses">${courses.map(c=>`<button class="chip ${filterCourse===c.id?'on':''}" data-c="${c.id}" style="--c:${c.color}"><span class="dot"></span>${esc(c.name)}</button>`).join('')}</div>`:''}
-  <div class="status" id="status">${data?`Last synced ${new Date(data.fetchedAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}${cfg.mode==='demo'?' · demo data':''}${data?.source==='calendar'?' · calendar mode':''}`:'Not synced yet'}</div>${data?.apiNote?`<div class="status err" id="apinote">Classroom API refused: ${esc(data.apiNote)} ${/insufficient|scope/i.test(data.apiNote)?'Do step 3 (paste the manifest) and redeploy as a new version.':/not been used|disabled|blocked|403/i.test(data.apiNote)?'Your school blocks the Classroom API for scripts. Tell Claude this message.':''}</div>`:''}
+  <div class="status" id="status">${data?`Last synced ${new Date(data.fetchedAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}${cfg.mode==='demo'?' · demo data':''}${data?.source==='calendar'?' · calendar mode':''}${data?.version?` · bridge v${data.version}`:' · OLD script, redeploy'}`:'Not synced yet'}</div>${data?.apiNote?`<div class="status err" id="apinote">Classroom API refused: ${esc(data.apiNote)} ${/insufficient|scope/i.test(data.apiNote)?'Do step 3 (paste the manifest) and redeploy as a new version.':/not been used|disabled|blocked|403/i.test(data.apiNote)?'Your school blocks the Classroom API for scripts. Tell Claude this message.':''}</div>`:''}
   ${vis.length?G.filter(g=>groups[g.k]).map(g=>`
     <section class="group" style="--gc:${g.c}"><h2>${g.t} <small>${groups[g.k].length}</small></h2><div class="card">
       ${groups[g.k].map(x=>`<div class="item ${x.isDone?'done':''}" style="--c:${x.color}">
