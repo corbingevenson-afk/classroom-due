@@ -10,7 +10,7 @@
  * It reads the Classroom API directly (assignments + turned-in status). If your school refuses that,
  * it falls back to your Classroom calendars and tells the app why.
  */
-var VERSION = 4;         // shown in the app so you can tell the new script is live
+var VERSION = 5;         // shown in the app so you can tell the new script is live
 var KEY = 'change-me';   // <- pick your own
 var DAYS_BACK = 45;      // how far back to include old assignments
 var DAYS_AHEAD = 120;    // how far ahead to look in calendars
@@ -19,11 +19,15 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
   if (KEY && p.key !== KEY) return out({ error: 'Wrong key. Add ?key=YOURKEY or fix the key in the app.' });
   try {
+    var cache = CacheService.getUserCache(), hit = p.fresh ? null : cache.get('cd');
+    if (hit) return ContentService.createTextOutput(hit).setMimeType(ContentService.MimeType.JSON);
     var viaApi = tryClassroomApi();
-    if (viaApi) return out(viaApi);
-    var res = viaCalendar();
-    res.apiNote = LAST_API_ERROR || 'Classroom API returned nothing';
-    return out(res);
+    var res = viaApi;
+    if (!res) { res = viaCalendar(); res.apiNote = LAST_API_ERROR || 'Classroom API returned nothing'; }
+    res.version = VERSION;
+    var text = JSON.stringify(res);
+    if (text.length < 95000) cache.put('cd', text, 180); // 3 minutes, so re-opening the app is instant
+    return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return out({ error: 'Script error: ' + (err && err.message ? err.message : err) });
   }
@@ -54,17 +58,35 @@ function apiAll(url, key) {
   } while (token);
   return items;
 }
+// Fetch many URLs at once (one round trip for all classes), following nextPageToken for up to 5 rounds.
+function fetchMany(urls, key) {
+  var hdr = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() };
+  var out = urls.map(function () { return []; });
+  var pending = urls.map(function (u, i) { return { i: i, url: u }; });
+  for (var round = 0; round < 5 && pending.length; round++) {
+    var resps = UrlFetchApp.fetchAll(pending.map(function (p) { return { url: p.url, headers: hdr, muteHttpExceptions: true }; }));
+    var next = [];
+    for (var r = 0; r < resps.length; r++) {
+      if (resps[r].getResponseCode() !== 200) continue;
+      var j = JSON.parse(resps[r].getContentText());
+      out[pending[r].i] = out[pending[r].i].concat(j[key] || []);
+      if (j.nextPageToken) next.push({ i: pending[r].i, url: pending[r].url.replace(/&pageToken=[^&]*/, '') + '&pageToken=' + j.nextPageToken });
+    }
+    pending = next;
+  }
+  return out;
+}
 function tryClassroomApi() {
   var base = 'https://classroom.googleapis.com/v1/courses';
   var courses = apiAll(base + '?courseStates=ACTIVE&studentId=me&pageSize=100', 'courses');
   if (!courses) return null; // no permission -> fall back to calendars
   var cutoff = Date.now() - DAYS_BACK * 864e5;
   var work = [], subs = [];
+  var workLists = fetchMany(courses.map(function (c) { return base + '/' + c.id + '/courseWork?courseWorkStates=PUBLISHED&orderBy=dueDate%20desc&pageSize=100'; }), 'courseWork');
+  var subLists = fetchMany(courses.map(function (c) { return base + '/' + c.id + '/courseWork/-/studentSubmissions?userId=me&pageSize=100'; }), 'studentSubmissions');
   for (var i = 0; i < courses.length; i++) {
-    var c = courses[i];
-    var w = apiAll(base + '/' + c.id + '/courseWork?courseWorkStates=PUBLISHED&orderBy=dueDate%20desc&pageSize=100', 'courseWork') || [];
+    var w = workLists[i], s = subLists[i];
     for (var k = 0; k < w.length; k++) if (keep(w[k], cutoff)) work.push(slimWork(w[k]));
-    var s = apiAll(base + '/' + c.id + '/courseWork/-/studentSubmissions?userId=me&pageSize=100', 'studentSubmissions') || [];
     for (var m = 0; m < s.length; m++) subs.push({ courseWorkId: s[m].courseWorkId, state: s[m].state, late: !!s[m].late });
   }
   return {
