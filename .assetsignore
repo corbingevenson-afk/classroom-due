@@ -1,0 +1,7 @@
+artifact.html
+.git/
+.gitignore
+README.md
+_c.js
+wrangler.jsonc
+apps-script/

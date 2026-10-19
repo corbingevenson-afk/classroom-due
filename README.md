@@ -2,7 +2,7 @@
 
 Your Google Classroom assignments in one clean list: overdue, today, tomorrow, this week, later. Shows points, turned-in status, and a link back to Classroom. Works as an installable app on a Chromebook.
 
-Live app: https://classroom-due.pages.dev/ (Cloudflare Pages). GitHub Pages mirror: https://corbingevenson-afk.github.io/classroom-due/
+Live app: https://classroom-due.lassroom-ue.workers.dev/ (Cloudflare). GitHub Pages mirror: https://corbingevenson-afk.github.io/classroom-due/
 
 ## Connect it to your Classroom (about 5 minutes)
 
@@ -30,4 +30,4 @@ Open the live link in Chrome, click the install icon at the right end of the add
 
 ## Redeploy
 
-Commit and `git push` to `main`. GitHub Pages serves the root folder; it is live within about a minute.
+Cloudflare: `npx wrangler deploy` from this folder (needs `npx wrangler login` once). GitHub mirror: commit and `git push` to `main`.
