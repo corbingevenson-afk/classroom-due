@@ -93,56 +93,68 @@ details summary{cursor:pointer;color:var(--acc);font-size:14px;margin-top:8px}
 
 <script type="text/plain" id="gs">
 /**
- * Classroom Due bridge
- * 1. Paste this into a new project at script.google.com (use the account you use for Classroom).
+ * Classroom Due bridge (no "add a service" step needed)
+ * 1. Paste this into a new project at script.google.com (the account you use for Classroom).
  * 2. Change KEY below to any password you like.
- * 3. Services (+) -> Google Classroom API -> Add.
- * 4. Deploy -> New deployment -> Web app. Execute as: Me. Who has access: Anyone. Deploy and approve.
- * 5. Paste the Web app URL and the key into the Classroom Due app.
+ * 3. Deploy -> New deployment -> Web app. Execute as: Me. Who has access: Anyone. Deploy and approve.
+ * 4. Paste the Web app URL and the key into the Classroom Due app.
+ *
+ * How it gets your assignments, in order:
+ *   A. The Classroom API, if your account is allowed to use it (gives Turned in / Late status).
+ *   B. Otherwise your Classroom calendars (every class has one). Due dates and titles, no turned-in status.
+ * To unlock A without the Services button: Project Settings -> tick "Show appsscript.json",
+ * then replace that file with the manifest the app gives you ("Copy manifest") and redeploy.
  */
 var KEY = 'change-me';   // <- pick your own
 var DAYS_BACK = 45;      // how far back to include old assignments
+var DAYS_AHEAD = 120;    // how far ahead to look in calendars
 
 function doGet(e) {
   var p = (e && e.parameter) || {};
   if (KEY && p.key !== KEY) return out({ error: 'Wrong key. Add ?key=YOURKEY or fix the key in the app.' });
-  try { return out(collect()); }
-  catch (err) { return out({ error: 'Script error: ' + (err && err.message ? err.message : err) }); }
+  try {
+    var viaApi = tryClassroomApi();
+    return out(viaApi || viaCalendar());
+  } catch (err) {
+    return out({ error: 'Script error: ' + (err && err.message ? err.message : err) });
+  }
 }
 
-function collect() {
-  var courses = [], token;
+// ---------- A. Classroom REST API through the script's own token ----------
+function api(url) {
+  var r = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) return null;
+  return JSON.parse(r.getContentText());
+}
+function apiAll(url, key) {
+  var items = [], token;
   do {
-    var r = Classroom.Courses.list({ courseStates: ['ACTIVE'], studentId: 'me', pageSize: 100, pageToken: token });
-    courses = courses.concat(r.courses || []);
-    token = r.nextPageToken;
+    var j = api(url + (token ? '&pageToken=' + token : ''));
+    if (!j) return null;
+    items = items.concat(j[key] || []);
+    token = j.nextPageToken;
   } while (token);
-
+  return items;
+}
+function tryClassroomApi() {
+  var base = 'https://classroom.googleapis.com/v1/courses';
+  var courses = apiAll(base + '?courseStates=ACTIVE&studentId=me&pageSize=100', 'courses');
+  if (!courses) return null; // no permission -> fall back to calendars
   var cutoff = Date.now() - DAYS_BACK * 864e5;
   var work = [], subs = [];
-  courses.forEach(function (c) {
-    var t;
-    do {
-      var w = Classroom.Courses.CourseWork.list(c.id, { courseWorkStates: ['PUBLISHED'], orderBy: 'dueDate desc', pageSize: 100, pageToken: t });
-      (w.courseWork || []).forEach(function (cw) { if (keep(cw, cutoff)) work.push(slimWork(cw)); });
-      t = w.nextPageToken;
-    } while (t);
-    var s;
-    do {
-      var r2 = Classroom.Courses.CourseWork.StudentSubmissions.list(c.id, '-', { userId: 'me', pageSize: 100, pageToken: s });
-      (r2.studentSubmissions || []).forEach(function (x) { subs.push({ courseWorkId: x.courseWorkId, state: x.state, late: !!x.late }); });
-      s = r2.nextPageToken;
-    } while (s);
-  });
-
+  for (var i = 0; i < courses.length; i++) {
+    var c = courses[i];
+    var w = apiAll(base + '/' + c.id + '/courseWork?courseWorkStates=PUBLISHED&orderBy=dueDate%20desc&pageSize=100', 'courseWork') || [];
+    for (var k = 0; k < w.length; k++) if (keep(w[k], cutoff)) work.push(slimWork(w[k]));
+    var s = apiAll(base + '/' + c.id + '/courseWork/-/studentSubmissions?userId=me&pageSize=100', 'studentSubmissions') || [];
+    for (var m = 0; m < s.length; m++) subs.push({ courseWorkId: s[m].courseWorkId, state: s[m].state, late: !!s[m].late });
+  }
   return {
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: new Date().toISOString(), source: 'classroom',
     courses: courses.map(function (c) { return { id: c.id, name: c.name, section: c.section || '' }; }),
-    work: work,
-    subs: subs
+    work: work, subs: subs
   };
 }
-
 function keep(cw, cutoff) {
   if (cw.dueDate && cw.dueDate.year) {
     var d = cw.dueDate, t = cw.dueTime || { hours: 23, minutes: 59 };
@@ -150,7 +162,6 @@ function keep(cw, cutoff) {
   }
   return Date.parse(cw.creationTime || 0) >= cutoff;
 }
-
 function slimWork(cw) {
   return {
     id: cw.id, courseId: cw.courseId, title: cw.title, description: (cw.description || '').slice(0, 160),
@@ -159,8 +170,57 @@ function slimWork(cw) {
   };
 }
 
+// ---------- B. Classroom calendars (built-in CalendarApp, always available) ----------
+function viaCalendar() {
+  var from = new Date(Date.now() - DAYS_BACK * 864e5), to = new Date(Date.now() + DAYS_AHEAD * 864e5);
+  var cals = CalendarApp.getAllCalendars();
+  var courses = [], work = [];
+  for (var i = 0; i < cals.length; i++) {
+    var cal = cals[i], id = cal.getId();
+    if (id.indexOf('classroom') !== 0) continue;          // Classroom calendars are classroom…@group.calendar.google.com
+    courses.push({ id: id, name: cal.getName(), section: '' });
+    var evs = cal.getEvents(from, to);
+    for (var k = 0; k < evs.length; k++) {
+      var ev = evs[k], st = ev.getStartTime(), desc = ev.getDescription() || '';
+      var link = (desc.match(/https?:\/\/classroom\.google\.com\/[^\s"<>]+/) || [''])[0];
+      var item = {
+        id: ev.getId(), courseId: id, title: ev.getTitle(),
+        description: desc.replace(/<[^>]+>/g, ' ').replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, 160),
+        alternateLink: link, workType: 'ASSIGNMENT', maxPoints: null, creationTime: ev.getDateCreated().toISOString()
+      };
+      if (ev.isAllDayEvent()) {
+        var d = ev.getAllDayStartDate();
+        item.dueDate = { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+        item.dueTime = null;                                 // end of that day
+      } else {
+        item.dueDate = { year: st.getUTCFullYear(), month: st.getUTCMonth() + 1, day: st.getUTCDate() };
+        item.dueTime = { hours: st.getUTCHours(), minutes: st.getUTCMinutes() };
+      }
+      work.push(item);
+    }
+  }
+  if (!courses.length) return { error: 'No Classroom calendars found on this account. Open calendar.google.com and check your classes show up under "Other calendars".' };
+  return { fetchedAt: new Date().toISOString(), source: 'calendar', courses: courses, work: work, subs: [] };
+}
+
 function out(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+</script>
+<script type="text/plain" id="gsman">
+{
+  "timeZone": "America/Chicago",
+  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/classroom.courses.readonly",
+    "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
+    "https://www.googleapis.com/auth/classroom.student-submissions.me.readonly",
+    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/script.external_request"
+  ],
+  "webapp": { "executeAs": "USER_DEPLOYING", "access": "ANYONE_ANONYMOUS" }
 }
 </script>
 
@@ -226,7 +286,7 @@ function normalize(raw){
       due:toDue(w.dueDate,w.dueTime),points:w.maxPoints||null,link:w.alternateLink||'',type:w.workType||'',
       handedIn:st==='TURNED_IN'||st==='RETURNED',late:!!s.late,desc:(w.description||'').slice(0,160)};
   });
-  return {fetchedAt:raw.fetchedAt||new Date().toISOString(),courses,items};
+  return {fetchedAt:raw.fetchedAt||new Date().toISOString(),source:raw.source||'',courses,items};
 }
 
 // ---------- data sources ----------
@@ -345,10 +405,12 @@ function renderSetup(){
     <details><summary>Setup steps (about 5 minutes)</summary><ol>
       <li>On the account you use for Classroom, open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a> and make a new project.</li>
       <li>Delete what is there, then <button id="b-copy" style="padding:3px 9px;font-size:13px">Copy the script</button> and paste it in. Change <code>KEY</code> at the top to any password you like. <details><summary>Show the script</summary><textarea id="gs-view" rows="8" readonly style="font:12px/1.4 ui-monospace,monospace;margin-top:6px"></textarea></details></li>
-      <li>Left sidebar, next to <b>Services</b> click <b>+</b>, pick <b>Google Classroom API</b>, Add.</li>
       <li>Top right <b>Deploy → New deployment</b>. Type: <b>Web app</b>. Execute as: <b>Me</b>. Who has access: <b>Anyone</b>. Deploy, then approve the permissions (Advanced → Go to project if it warns you).</li>
       <li>Copy the Web app URL (ends in <code>/exec</code>) and paste it below with your key.</li>
-    </ol></details>
+    </ol>
+    <p style="margin-top:10px">That is enough for due dates: the script reads the calendar each class makes for you. No "add a service" step.</p>
+    <p><b>Optional, for Turned in / Late badges:</b> in the script editor open <b>Project Settings</b> (gear), tick <b>Show "appsscript.json" manifest file</b>, open that file, replace everything with <button id="b-copyman" style="padding:3px 9px;font-size:13px">Copy manifest</button>, save, then Deploy → Manage deployments → edit → New version → Deploy and approve the new permissions. If your school blocks the Classroom API the script just keeps using the calendars.</p>
+    </details>
     <label>Web app URL</label><input id="f-url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(cfg.scriptUrl||'')}">
     <label>Key (same as KEY in the script)</label><input id="f-key" placeholder="your key" value="${esc(cfg.key||'')}">
     <div class="row"><button class="primary" id="b-script">Save & sync</button></div>
@@ -379,6 +441,8 @@ function renderSetup(){
   </div>`;
   const gsrc=document.getElementById('gs').textContent.trim()+'\n'; $('#gs-view').value=gsrc;
   $('#b-copy').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gsrc); toast('Script copied. Paste it into Apps Script.')}catch{ $('#gs-view').closest('details').open=true; $('#gs-view').select(); toast('Select all in the box and copy') }};
+  const gman=document.getElementById('gsman').textContent.trim()+String.fromCharCode(10);
+  $('#b-copyman').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gman); toast('Manifest copied. Paste it over appsscript.json.')}catch{ toast('Copy failed. The manifest is in the repo as apps-script/appsscript.json') }};
   $('#b-script').onclick=()=>{const url=$('#f-url').value.trim(); if(!/^https:\/\/script\.google\.com\/.+\/exec/.test(url)) return toast('Paste the Web app URL ending in /exec'); cfg={...cfg,mode:'script',scriptUrl:url,key:$('#f-key').value.trim()}; save(LS.cfg,cfg); renderMain(); sync();};
   $('#b-json').onclick=()=>{try{const raw=JSON.parse($('#f-json').value); if(raw.error) throw new Error(raw.error); data=normalize(raw); save(LS.data,data); cfg={...cfg,mode:cfg.mode||'script',scriptUrl:$('#f-url').value.trim()||cfg.scriptUrl||'',key:$('#f-key').value.trim()||cfg.key||''}; save(LS.cfg,cfg); renderMain(); toast('Loaded');}catch(e){toast('Bad JSON: '+e.message)}};
   $('#b-demo').onclick=()=>{cfg={...cfg,mode:'demo'}; save(LS.cfg,cfg); renderMain(); sync();};

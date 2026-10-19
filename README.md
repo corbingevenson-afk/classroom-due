@@ -6,15 +6,18 @@ Live app: https://classroom-due.lassroom-ue.workers.dev/ (Cloudflare). GitHub Pa
 
 ## Connect it to your Classroom (about 5 minutes)
 
-Use the Google account you use for Classroom.
+Use the Google account you use for Classroom. No "add a service" step is needed: the script reads the calendar each class makes for you, and uses the full Classroom API only if your account is allowed to.
 
 1. Open https://script.google.com/home/projects/create (new project).
 2. Delete everything in the editor and paste in the script (use **Copy the script** inside the app, or [`apps-script/Code.gs`](apps-script/Code.gs)). Change `KEY` at the top to any password you like.
-3. In the left sidebar, click the **+** next to **Services**, choose **Google Classroom API**, click **Add**.
-4. Top right: **Deploy → New deployment**. Gear icon → type **Web app**. Execute as: **Me**. Who has access: **Anyone**. Click **Deploy** and approve the permissions. If Google shows a warning screen, click **Advanced → Go to (project name)**.
-5. Copy the **Web app URL** (ends in `/exec`). Open the app, paste the URL and your key, hit **Save & sync**.
+3. Top right: **Deploy -> New deployment**. Gear icon -> type **Web app**. Execute as: **Me**. Who has access: **Anyone**. Click **Deploy** and approve the permissions (Calendar + external connections). If Google shows a warning screen, click **Advanced -> Go to (project name)**.
+4. Copy the **Web app URL** (ends in `/exec`). Open the app, paste the URL and your key, hit **Save & sync**.
 
 Nobody else can see your assignments unless they have both the URL and your key.
+
+### Optional: Turned in / Late badges
+
+Calendar mode only knows due dates. To get submission status the script needs Classroom API permission. In the script editor open **Project Settings** (gear), tick **Show "appsscript.json" manifest file in editor**, open that file and replace it with [`apps-script/appsscript.json`](apps-script/appsscript.json) (or **Copy manifest** in the app). Save, then **Deploy -> Manage deployments -> edit -> New version -> Deploy** and approve the new permissions. If the school blocks the Classroom API, the script silently keeps using the calendars.
 
 ### If the sync fails
 
