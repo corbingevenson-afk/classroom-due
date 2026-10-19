@@ -82,17 +82,16 @@ details summary{cursor:pointer;color:var(--acc);font-size:14px;margin-top:8px}
 
 <script type="text/plain" id="gs">
 /**
- * Classroom Due bridge (no "add a service" step needed)
+ * Classroom Due bridge
  * 1. Paste this into a new project at script.google.com (the account you use for Classroom).
  * 2. Change KEY below to any password you like.
- * 3. Deploy -> New deployment -> Web app. Execute as: Me. Who has access: Anyone. Deploy and approve.
- * 4. Paste the Web app URL and the key into the Classroom Due app.
+ * 3. Project Settings (gear) -> tick "Show appsscript.json manifest file" -> open appsscript.json
+ *    and replace it with the manifest from the app ("Copy manifest"). This is what lets the script read Classroom.
+ * 4. Deploy -> New deployment -> Web app. Execute as: Me. Who has access: Anyone. Deploy and approve.
+ * 5. Paste the Web app URL and the key into the Classroom Due app.
  *
- * How it gets your assignments, in order:
- *   A. The Classroom API, if your account is allowed to use it (gives Turned in / Late status).
- *   B. Otherwise your Classroom calendars (every class has one). Due dates and titles, no turned-in status.
- * To unlock A without the Services button: Project Settings -> tick "Show appsscript.json",
- * then replace that file with the manifest the app gives you ("Copy manifest") and redeploy.
+ * It reads the Classroom API directly (assignments + turned-in status). If your school refuses that,
+ * it falls back to your Classroom calendars and tells the app why.
  */
 var KEY = 'change-me';   // <- pick your own
 var DAYS_BACK = 45;      // how far back to include old assignments
@@ -103,16 +102,28 @@ function doGet(e) {
   if (KEY && p.key !== KEY) return out({ error: 'Wrong key. Add ?key=YOURKEY or fix the key in the app.' });
   try {
     var viaApi = tryClassroomApi();
-    return out(viaApi || viaCalendar());
+    if (viaApi) return out(viaApi);
+    var res = viaCalendar();
+    res.apiNote = LAST_API_ERROR || 'Classroom API returned nothing';
+    return out(res);
   } catch (err) {
     return out({ error: 'Script error: ' + (err && err.message ? err.message : err) });
   }
 }
 
 // ---------- A. Classroom REST API through the script's own token ----------
+var LAST_API_ERROR = '';
 function api(url) {
-  var r = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
-  if (r.getResponseCode() !== 200) return null;
+  var r;
+  try {
+    r = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+  } catch (e) { LAST_API_ERROR = 'fetch blocked: ' + e.message; return null; }
+  if (r.getResponseCode() !== 200) {
+    var msg = r.getContentText();
+    try { msg = JSON.parse(msg).error.message || msg; } catch (e2) {}
+    LAST_API_ERROR = 'HTTP ' + r.getResponseCode() + ': ' + String(msg).slice(0, 300);
+    return null;
+  }
   return JSON.parse(r.getContentText());
 }
 function apiAll(url, key) {
@@ -188,7 +199,7 @@ function viaCalendar() {
       work.push(item);
     }
   }
-  if (!courses.length) return { error: 'No Classroom calendars found on this account. Open calendar.google.com and check your classes show up under "Other calendars".' };
+  if (!courses.length) return { fetchedAt: new Date().toISOString(), source: 'calendar', courses: [], work: [], subs: [] };
   return { fetchedAt: new Date().toISOString(), source: 'calendar', courses: courses, work: work, subs: [] };
 }
 
@@ -275,7 +286,7 @@ function normalize(raw){
       due:toDue(w.dueDate,w.dueTime),points:w.maxPoints||null,link:w.alternateLink||'',type:w.workType||'',
       handedIn:st==='TURNED_IN'||st==='RETURNED',late:!!s.late,desc:(w.description||'').slice(0,160)};
   });
-  return {fetchedAt:raw.fetchedAt||new Date().toISOString(),source:raw.source||'',courses,items};
+  return {fetchedAt:raw.fetchedAt||new Date().toISOString(),source:raw.source||'',apiNote:raw.apiNote||'',courses,items};
 }
 
 // ---------- data sources ----------
@@ -365,7 +376,7 @@ function renderMain(){
     <span class="chip stat" style="--c:var(--teal)"><span class="dot"></span><b>${week}</b> this week</span>
   </div>
   ${courses.length?`<div class="chips" id="courses">${courses.map(c=>`<button class="chip ${filterCourse===c.id?'on':''}" data-c="${c.id}" style="--c:${c.color}"><span class="dot"></span>${esc(c.name)}</button>`).join('')}</div>`:''}
-  <div class="status" id="status">${data?`Last synced ${new Date(data.fetchedAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}${cfg.mode==='demo'?' · demo data':''}`:'Not synced yet'}</div>
+  <div class="status" id="status">${data?`Last synced ${new Date(data.fetchedAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}${cfg.mode==='demo'?' · demo data':''}${data?.source==='calendar'?' · calendar mode':''}`:'Not synced yet'}</div>${data?.apiNote?`<div class="status err" id="apinote">Classroom API refused: ${esc(data.apiNote)} ${/insufficient|scope/i.test(data.apiNote)?'Do step 3 (paste the manifest) and redeploy as a new version.':/not been used|disabled|blocked|403/i.test(data.apiNote)?'Your school blocks the Classroom API for scripts. Tell Claude this message.':''}</div>`:''}
   ${vis.length?G.filter(g=>groups[g.k]).map(g=>`
     <section class="group" style="--gc:${g.c}"><h2>${g.t} <small>${groups[g.k].length}</small></h2><div class="card">
       ${groups[g.k].map(x=>`<div class="item ${x.isDone?'done':''}" style="--c:${x.color}">
@@ -431,7 +442,8 @@ function renderSetup(){
   const gsrc=document.getElementById('gs').textContent.trim()+'\n'; $('#gs-view').value=gsrc;
   $('#b-copy').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gsrc); toast('Script copied. Paste it into Apps Script.')}catch{ $('#gs-view').closest('details').open=true; $('#gs-view').select(); toast('Select all in the box and copy') }};
   const gman=document.getElementById('gsman').textContent.trim()+String.fromCharCode(10);
-  $('#b-copyman').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gman); toast('Manifest copied. Paste it over appsscript.json.')}catch{ toast('Copy failed. The manifest is in the repo as apps-script/appsscript.json') }};
+  $('#gsman-view').value=gman;
+  $('#b-copyman').onclick=async ev=>{ev.preventDefault(); try{await navigator.clipboard.writeText(gman); toast('Manifest copied. Paste it over appsscript.json.')}catch{ $('#gsman-view').closest('details').open=true; $('#gsman-view').select(); toast('Select all in the box and copy') }};
   $('#b-script').onclick=()=>{const url=$('#f-url').value.trim(); if(!/^https:\/\/script\.google\.com\/.+\/exec/.test(url)) return toast('Paste the Web app URL ending in /exec'); cfg={...cfg,mode:'script',scriptUrl:url,key:$('#f-key').value.trim()}; save(LS.cfg,cfg); renderMain(); sync();};
   $('#b-json').onclick=()=>{try{const raw=JSON.parse($('#f-json').value); if(raw.error) throw new Error(raw.error); data=normalize(raw); save(LS.data,data); cfg={...cfg,mode:cfg.mode||'script',scriptUrl:$('#f-url').value.trim()||cfg.scriptUrl||'',key:$('#f-key').value.trim()||cfg.key||''}; save(LS.cfg,cfg); renderMain(); toast('Loaded');}catch(e){toast('Bad JSON: '+e.message)}};
   $('#b-demo').onclick=()=>{cfg={...cfg,mode:'demo'}; save(LS.cfg,cfg); renderMain(); sync();};

@@ -1,15 +1,14 @@
 /**
- * Classroom Due bridge (no "add a service" step needed)
+ * Classroom Due bridge
  * 1. Paste this into a new project at script.google.com (the account you use for Classroom).
  * 2. Change KEY below to any password you like.
- * 3. Deploy -> New deployment -> Web app. Execute as: Me. Who has access: Anyone. Deploy and approve.
- * 4. Paste the Web app URL and the key into the Classroom Due app.
+ * 3. Project Settings (gear) -> tick "Show appsscript.json manifest file" -> open appsscript.json
+ *    and replace it with the manifest from the app ("Copy manifest"). This is what lets the script read Classroom.
+ * 4. Deploy -> New deployment -> Web app. Execute as: Me. Who has access: Anyone. Deploy and approve.
+ * 5. Paste the Web app URL and the key into the Classroom Due app.
  *
- * How it gets your assignments, in order:
- *   A. The Classroom API, if your account is allowed to use it (gives Turned in / Late status).
- *   B. Otherwise your Classroom calendars (every class has one). Due dates and titles, no turned-in status.
- * To unlock A without the Services button: Project Settings -> tick "Show appsscript.json",
- * then replace that file with the manifest the app gives you ("Copy manifest") and redeploy.
+ * It reads the Classroom API directly (assignments + turned-in status). If your school refuses that,
+ * it falls back to your Classroom calendars and tells the app why.
  */
 var KEY = 'change-me';   // <- pick your own
 var DAYS_BACK = 45;      // how far back to include old assignments
@@ -20,16 +19,28 @@ function doGet(e) {
   if (KEY && p.key !== KEY) return out({ error: 'Wrong key. Add ?key=YOURKEY or fix the key in the app.' });
   try {
     var viaApi = tryClassroomApi();
-    return out(viaApi || viaCalendar());
+    if (viaApi) return out(viaApi);
+    var res = viaCalendar();
+    res.apiNote = LAST_API_ERROR || 'Classroom API returned nothing';
+    return out(res);
   } catch (err) {
     return out({ error: 'Script error: ' + (err && err.message ? err.message : err) });
   }
 }
 
 // ---------- A. Classroom REST API through the script's own token ----------
+var LAST_API_ERROR = '';
 function api(url) {
-  var r = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
-  if (r.getResponseCode() !== 200) return null;
+  var r;
+  try {
+    r = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+  } catch (e) { LAST_API_ERROR = 'fetch blocked: ' + e.message; return null; }
+  if (r.getResponseCode() !== 200) {
+    var msg = r.getContentText();
+    try { msg = JSON.parse(msg).error.message || msg; } catch (e2) {}
+    LAST_API_ERROR = 'HTTP ' + r.getResponseCode() + ': ' + String(msg).slice(0, 300);
+    return null;
+  }
   return JSON.parse(r.getContentText());
 }
 function apiAll(url, key) {
@@ -105,7 +116,7 @@ function viaCalendar() {
       work.push(item);
     }
   }
-  if (!courses.length) return { error: 'No Classroom calendars found on this account. Open calendar.google.com and check your classes show up under "Other calendars".' };
+  if (!courses.length) return { fetchedAt: new Date().toISOString(), source: 'calendar', courses: [], work: [], subs: [] };
   return { fetchedAt: new Date().toISOString(), source: 'calendar', courses: courses, work: work, subs: [] };
 }
 
